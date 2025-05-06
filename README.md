@@ -47,7 +47,7 @@ A comprehensive self-hosted solution for monitoring website uptime, performance,
 
 1. Clone the repository or download the latest release:
    ```bash
-   git clone https://github.com/yourusername/domain-health-monitor.git
+   git clone https://github.com/noam466sdrthfdht/P.d.h-monitor.git
    cd domain-health-monitor
    ```
 
@@ -56,16 +56,11 @@ A comprehensive self-hosted solution for monitoring website uptime, performance,
    pip install -r requirements.txt
    ```
 
-3. Create a configuration file (if not using the default one):
-   ```bash
-   python -c "from config import Config; Config().create_default_config()"
-   ```
+3. Edit the `config.yaml` file with your settings (see Configuration section below)
 
-4. Edit the `config.yaml` file with your settings (see Configuration section below)
-
-5. Run the application:
+4. Run the application:
    ```bash
-   python main.py
+   run start.bat
    ```
 
 ## Configuration
@@ -94,7 +89,7 @@ http_settings:
     Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8
 ```
 
-### Email Configuration
+### Email Configuration - optional (beta)
 
 For Gmail, you'll need to create an App Password if you have 2FA enabled:
 1. Go to your Google Account → Security → App passwords
@@ -102,7 +97,7 @@ For Gmail, you'll need to create an App Password if you have 2FA enabled:
 3. Enter "Domain Health Monitor" and click Generate
 4. Use the generated password in the `smtp_password` field
 
-### SMS Configuration (Optional)
+### SMS Configuration - optional (beta)
 
 To enable SMS alerts:
 1. Sign up for a Twilio account at [twilio.com](https://www.twilio.com)
@@ -149,16 +144,6 @@ Configure the application by clicking the Settings link:
 - Email and SMS notification settings
 - HTTP request parameters
 
-## Building an Executable
-
-To build a standalone executable:
-
-```bash
-pip install pyinstaller
-pyinstaller --onefile --windowed --icon=icon.ico main.py
-```
-
-The executable will be created in the `dist` directory.
 
 ## Troubleshooting
 
@@ -182,9 +167,6 @@ The executable will be created in the `dist` directory.
 3. Verify you have write permissions in the application directory
 4. Check the logs in `domain_monitor.log` for error details
 
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Acknowledgments
 
