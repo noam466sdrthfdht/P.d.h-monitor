@@ -1,0 +1,14 @@
+flask==2.2.5
+flask-wtf==1.0.0       # Compatible with Flask 2.x
+werkzeug==2.2.2        # Compatible with Flask 2.x
+requests==2.31.0
+matplotlib>=3.8.0
+pandas==2.0.3
+numpy==1.26.4          # Compatible with pandas 2.0.3
+cryptography==41.0.3
+pyOpenSSL==23.2.0
+apscheduler==3.10.1
+pyyaml==6.0.1
+twilio==8.5.0
+plotly==5.16.1
+pywebview

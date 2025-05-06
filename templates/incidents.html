@@ -1,0 +1,93 @@
+
+        {% extends "base.html" %}
+
+        {% block title %}Incidents - Domain Health Monitor{% endblock %}
+
+        {% block content %}
+        <h1 class="mb-4">Incidents</h1>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Filter Incidents</h5>
+            </div>
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-5">
+                        <label for="website_id" class="form-label">Website</label>
+                        <select class="form-select" id="website_id" name="website_id">
+                            <option value="">All Websites</option>
+                            {% for website in websites %}
+                                <option value="{{ website.id }}" {% if selected_website == website.id %}selected{% endif %}>
+                                    {{ website.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <label for="resolved" class="form-label">Status</label>
+                        <select class="form-select" id="resolved" name="resolved">
+                            <option value="1" {% if include_resolved %}selected{% endif %}>All Incidents</option>
+                            <option value="0" {% if not include_resolved %}selected{% endif %}>Ongoing Only</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">Apply Filters</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if incidents %}
+            <div class="table-responsive incidents-list">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Website</th>
+                            <th>Start Time</th>
+                            <th>End Time</th>
+                            <th>Duration</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for incident in incidents %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('website_detail', website_id=incident.website_id) }}">
+                                    {{ incident.website_name }}
+                                </a>
+                            </td>
+                            <td>{{ incident.start_time|format_datetime }}</td>
+                            <td>{{ incident.end_time|format_datetime if incident.end_time else 'Ongoing' }}</td>
+                            <td>
+                                {% if incident.duration %}
+                                    {% if incident.duration < 60 %}
+                                        {{ incident.duration }} seconds
+                                    {% elif incident.duration < 3600 %}
+                                        {{ (incident.duration // 60) }} minutes
+                                    {% else %}
+                                        {{ (incident.duration // 3600) }} hours, {{ ((incident.duration % 3600) // 60) }} minutes
+                                    {% endif %}
+                                {% else %}
+                                    Ongoing
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if incident.resolved %}
+                                    <span class="badge bg-success">Resolved</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Ongoing</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                No incidents found with the current filters.
+            </div>
+        {% endif %}
+        {% endblock %}
+        

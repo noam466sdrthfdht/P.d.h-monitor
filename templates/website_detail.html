@@ -1,0 +1,566 @@
+
+        {% extends "base.html" %}
+
+        {% block title %}{{ website.name }} - Domain Health Monitor{% endblock %}
+
+        {% block head %}
+        <style>
+            .card-metric {
+                text-align: center;
+                padding: 1rem;
+            }
+            .metric-value {
+                font-size: 2rem;
+                font-weight: bold;
+            }
+            .metric-label {
+                font-size: 0.9rem;
+                color: #6c757d;
+            }
+        </style>
+        <meta name="website-id" content="{{ website.id }}">
+        {% endblock %}
+
+        {% block content %}
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>{{ website.name }}</h1>
+            <div class="btn-group">
+                <button id="checkNowBtn" class="btn btn-primary">
+                    <i class="bi bi-arrow-repeat"></i> Check Now
+                </button>
+                <a href="{{ url_for('edit_website', website_id=website.id) }}" class="btn btn-secondary">
+                    <i class="bi bi-pencil"></i> Edit
+                </a>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">Website Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4">URL</dt>
+                            <dd class="col-sm-8">
+                                <a href="{{ website.url }}" target="_blank">{{ website.url }}</a>
+                            </dd>
+
+                            <dt class="col-sm-4">Description</dt>
+                            <dd class="col-sm-8">{{ website.description or 'N/A' }}</dd>
+
+                            <dt class="col-sm-4">Current Status</dt>
+                            <dd class="col-sm-8">
+                                {% if stats.latest_check and stats.latest_check.is_up %}
+                                    <span class="badge bg-success">Up</span>
+                                {% elif stats.latest_check and not stats.latest_check.is_up %}
+                                    <span class="badge bg-danger">Down</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Unknown</span>
+                                {% endif %}
+                            </dd>
+
+                            <dt class="col-sm-4">Monitoring Settings</dt>
+                            <dd class="col-sm-8">
+                                {% if website.check_ssl %}
+                                    <span class="badge bg-info">SSL Checks</span>
+                                {% endif %}
+                                {% if website.check_security %}
+                                    <span class="badge bg-info">Security Checks</span>
+                                {% endif %}
+                                {% if website.alerts_enabled %}
+                                    <span class="badge bg-info">Alerts Enabled</span>
+                                {% endif %}
+                            </dd>
+
+                            <dt class="col-sm-4">Last Checked</dt>
+                            <dd class="col-sm-8">
+                                {% if stats.latest_check %}
+                                    {{ stats.latest_check.timestamp|format_datetime }}
+                                {% else %}
+                                    Never
+                                {% endif %}
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">Performance Metrics</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-sm-6">
+                                <div class="card-metric">
+                                    <div class="metric-value text-success">{{ stats.uptime['30d'] }}%</div>
+                                    <div class="metric-label">30-Day Uptime</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="card-metric">
+                                    <div class="metric-value text-success">{{ stats.uptime['7d'] }}%</div>
+                                    <div class="metric-label">7-Day Uptime</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="card-metric">
+                                    <div class="metric-value">{{ stats.response_time.average }} ms</div>
+                                    <div class="metric-label">Avg Response Time</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="card-metric">
+                                    {% if stats.latest_check and stats.latest_check.ssl_days_remaining %}
+                                        <div class="metric-value {% if stats.latest_check.ssl_days_remaining > 30 %}text-success{% elif stats.latest_check.ssl_days_remaining > 7 %}text-warning{% else %}text-danger{% endif %}">
+                                            {{ stats.latest_check.ssl_days_remaining }} days
+                                        </div>
+                                        <div class="metric-label">SSL Expiry</div>
+                                    {% elif stats.latest_check and stats.latest_check.ssl_valid is not none %}
+                                        <div class="metric-value text-danger">Invalid</div>
+                                        <div class="metric-label">SSL Certificate</div>
+                                    {% else %}
+                                        <div class="metric-value text-secondary">N/A</div>
+                                        <div class="metric-label">SSL Status</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Performance History</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="nav nav-tabs" id="myTab" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="uptime-tab" data-bs-toggle="tab" data-bs-target="#uptime"
+                                        type="button" role="tab" aria-selected="true">Uptime</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="response-tab" data-bs-toggle="tab" data-bs-target="#response"
+                                        type="button" role="tab" aria-selected="false">Response Time</button>
+                            </li>
+                        </ul>
+                        <div class="tab-content pt-3">
+                            <div class="tab-pane fade show active" id="uptime" role="tabpanel">
+                                <canvas id="uptimeChart" height="250"></canvas>
+                            </div>
+                            <div class="tab-pane fade" id="response" role="tabpanel">
+                                <canvas id="responseTimeChart" height="250"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Recent Checks</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Status</th>
+                                        <th>Response</th>
+                                        <th>Code</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for check in checks %}
+                                    <tr>
+                                        <td>{{ check.timestamp|format_datetime }}</td>
+                                        <td>
+                                            {% if check.is_up %}
+                                                <span class="badge bg-success">Up</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">Down</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ check.response_time if check.response_time else '-' }} ms</td>
+                                        <td>{{ check.status_code if check.status_code else '-' }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Recent Incidents</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if stats.incidents %}
+                            <div class="list-group">
+                                {% for incident in stats.incidents %}
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between">
+                                        <h6 class="mb-1">{{ incident.start_time|format_datetime }}</h6>
+                                        {% if incident.resolved %}
+                                            <span class="badge bg-success">Resolved</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Ongoing</span>
+                                        {% endif %}
+                                    </div>
+                                    {% if incident.resolved %}
+                                        <p class="mb-1">
+                                            Duration:
+                                            {% if incident.duration < 60 %}
+                                                {{ incident.duration }} seconds
+                                            {% elif incident.duration < 3600 %}
+                                                {{ (incident.duration // 60) }} minutes
+                                            {% else %}
+                                                {{ (incident.duration // 3600) }} hours, {{ ((incident.duration % 3600) // 60) }} minutes
+                                            {% endif %}
+                                        </p>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info mb-0">
+                                No incidents recorded for this website.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if stats.latest_check and stats.latest_check.security_score is not none %}
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Security Assessment</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center mb-3">
+                            <div class="display-4
+                                {% if stats.latest_check.security_score >= 80 %}text-success
+                                {% elif stats.latest_check.security_score >= 50 %}text-warning
+                                {% else %}text-danger{% endif %}">
+                                {{ stats.latest_check.security_score }}%
+                            </div>
+                            <p class="text-muted">Security Score</p>
+                        </div>
+
+                        {% if stats.latest_check.details and stats.latest_check.details.security_issues %}
+                            <h6>Security Issues:</h6>
+                            <ul class="list-group">
+                                {% for issue in stats.latest_check.details.security_issues %}
+                                <li class="list-group-item">{{ issue }}</li>
+                                {% endfor %}
+                            </ul>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endblock %}
+
+        {% block scripts %}
+
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const CHECK_COMPLETION_INTERVAL = 5000; // 5 seconds
+            let autoRefreshEnabled = true;
+            const websiteId = document.querySelector('meta[name="website-id"]')?.getAttribute('content');
+
+            if (!websiteId) return; // Exit if we can't determine website ID
+
+            // Function to check if monitoring completed and update if needed
+            function checkMonitoringCompletion() {
+                if (!autoRefreshEnabled || !websiteId) return;
+
+                fetch('/api/last-check')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.data && data.data.timestamp) {
+                            // If there's a new check, refresh the website data
+                            fetchWebsiteData();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error checking monitoring completion:', error);
+                    })
+                    .finally(() => {
+                        if (autoRefreshEnabled) {
+                            setTimeout(checkMonitoringCompletion, CHECK_COMPLETION_INTERVAL);
+                        }
+                    });
+            }
+
+            // Function to fetch the latest data for this specific website
+            function fetchWebsiteData() {
+                fetch(`/api/websites/${websiteId}/data?days=30`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            updateDetailPage(data.data);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching website detail:', error);
+                    });
+            }
+
+            // Function to update the website detail page charts
+            function updateDetailPage(data) {
+                // Update charts
+                if (window.uptimeChart && data.uptime) {
+                    window.uptimeChart.data.labels = data.days;
+                    window.uptimeChart.data.datasets[0].data = data.uptime;
+                    window.uptimeChart.update();
+                }
+
+                if (window.responseChart && data.response_time) {
+                    window.responseChart.data.labels = data.days;
+                    window.responseChart.data.datasets[0].data = data.response_time;
+                    window.responseChart.update();
+                }
+
+                // Update current status
+                updateStatus();
+            }
+
+            // Function to update status, response time, etc.
+            function updateStatus() {
+                fetch(`/api/website-status`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const website = data.status.find(site => site.id == websiteId);
+                        if (website) {
+                            // Update status badge
+                            const statusEl = document.querySelector('.current-status');
+                            if (statusEl) {
+                                if (website.status === 'Up') {
+                                    statusEl.innerHTML = '<span class="badge bg-success">Up</span>';
+                                } else if (website.status === 'Down') {
+                                    statusEl.innerHTML = '<span class="badge bg-danger">Down</span>';
+                                } else {
+                                    statusEl.innerHTML = '<span class="badge bg-secondary">Unknown</span>';
+                                }
+                            }
+
+                            // Update response time if present
+                            const respTimeEl = document.querySelector('.current-response-time');
+                            if (respTimeEl && website.response_time) {
+                                respTimeEl.textContent = `${website.response_time} ms`;
+                            }
+
+                            // Add refresh notification
+                            const refreshMsg = document.createElement('div');
+                            refreshMsg.className = 'text-muted small mt-2';
+                            refreshMsg.textContent = `Updated: ${new Date().toLocaleTimeString()}`;
+
+                            // Replace old notification if exists
+                            const oldNotification = document.querySelector('.refresh-notification');
+                            if (oldNotification) {
+                                oldNotification.remove();
+                            }
+
+                            refreshMsg.classList.add('refresh-notification');
+
+                            // Find a good place to insert the notification
+                            const metricsCard = document.querySelector('.performance-metrics');
+                            if (metricsCard) {
+                                metricsCard.appendChild(refreshMsg);
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error updating status:', error);
+                    });
+            }
+
+            // Expose charts globally for updates
+            function exposeChartsGlobally() {
+                setTimeout(() => {
+                    const allCharts = Chart.instances || [];
+                    for (let i = 0; i < allCharts.length; i++) {
+                        const chart = allCharts[i];
+                        if (chart.canvas.id === 'uptimeChart') {
+                            window.uptimeChart = chart;
+                        } else if (chart.canvas.id === 'responseTimeChart') {
+                            window.responseChart = chart;
+                        }
+                    }
+                }, 1000); // Give charts time to initialize
+            }
+
+            // Initialize
+            exposeChartsGlobally();
+
+            // Add class to metrics card for easier targeting
+            const metricsCard = document.querySelector('.card:has(h5:contains("Performance Metrics"))');
+            if (metricsCard) {
+                metricsCard.classList.add('performance-metrics');
+            }
+
+            // Modify the DOM to allow for status updates
+            const statusElement = document.querySelector('dd:contains("Up"), dd:contains("Down"), dd:contains("Unknown")');
+            if (statusElement) {
+                statusElement.classList.add('current-status');
+            }
+
+            const respTimeElement = document.querySelector('dd:contains("ms")');
+            if (respTimeElement) {
+                respTimeElement.classList.add('current-response-time');
+            }
+
+            // Start monitoring for updates
+            setTimeout(checkMonitoringCompletion, 2000);
+        });
+        </script>
+
+
+        <script>
+            // Chart data
+            const uptimeData = {{ uptime_data|safe }};
+            const responseTimeData = {{ response_time_data|safe }};
+
+            // Create charts when the DOM is ready
+            document.addEventListener('DOMContentLoaded', function() {
+                // Uptime chart
+                const uptimeCtx = document.getElementById('uptimeChart').getContext('2d');
+                const uptimeChart = new Chart(uptimeCtx, {
+                    type: 'line',
+                    data: {
+                        labels: uptimeData.map(d => d.day),
+                        datasets: [{
+                            label: 'Uptime %',
+                            data: uptimeData.map(d => d.uptime),
+                            backgroundColor: 'rgba(40, 167, 69, 0.2)',
+                            borderColor: 'rgba(40, 167, 69, 1)',
+                            borderWidth: 2,
+                            tension: 0.1,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                min: Math.max(0, Math.min(...uptimeData.map(d => d.uptime)) - 5),
+                                max: 100,
+                                title: {
+                                    display: true,
+                                    text: 'Uptime %'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Date'
+                                }
+                            }
+                        },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `Uptime: ${context.parsed.y.toFixed(2)}%`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // Response time chart
+                const responseCtx = document.getElementById('responseTimeChart').getContext('2d');
+                const responseChart = new Chart(responseCtx, {
+                    type: 'line',
+                    data: {
+                        labels: responseTimeData.map(d => d.day),
+                        datasets: [{
+                            label: 'Response Time (ms)',
+                            data: responseTimeData.map(d => d.response_time),
+                            backgroundColor: 'rgba(0, 123, 255, 0.2)',
+                            borderColor: 'rgba(0, 123, 255, 1)',
+                            borderWidth: 2,
+                            tension: 0.1,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Response Time (ms)'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Date'
+                                }
+                            }
+                        },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `Response Time: ${context.parsed.y.toFixed(1)} ms`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // Handle "Check Now" button
+                document.getElementById('checkNowBtn').addEventListener('click', function() {
+                    this.disabled = true;
+                    this.innerHTML = '<i class="bi bi-hourglass-split"></i> Checking...';
+
+                    // Call the API to perform a check
+                    fetch('{{ url_for("api_check_website", website_id=website.id) }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token() }}'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Check completed successfully!');
+                            location.reload();
+                        } else {
+                            alert('Error: ' + data.error);
+                            this.disabled = false;
+                            this.innerHTML = '<i class="bi bi-arrow-repeat"></i> Check Now';
+                        }
+                    })
+                    .catch(error => {
+                        alert('Error: ' + error);
+                        this.disabled = false;
+                        this.innerHTML = '<i class="bi bi-arrow-repeat"></i> Check Now';
+                    });
+                });
+            });
+
+
+        </script>
+        {% endblock %}
+        

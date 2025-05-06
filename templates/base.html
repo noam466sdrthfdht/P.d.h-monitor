@@ -1,0 +1,407 @@
+
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>{% block title %}Domain Health Monitor{% endblock %}</title>
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+                <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+                <style>
+                    .status-up { color: #28a745; }
+                    .status-down { color: #dc3545; }
+                    .status-unknown { color: #6c757d; }
+                </style>
+                {% block head %}{% endblock %}
+            </head>
+            <body>
+                <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+                    <div class="container">
+                        <a class="navbar-brand" href="{{ url_for('index') }}">
+                            <i class="bi bi-globe"></i> Domain Health Monitor
+                        </a>
+                        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                            <span class="navbar-toggler-icon"></span>
+                        </button>
+                        <div class="collapse navbar-collapse" id="navbarNav">
+                            <ul class="navbar-nav">
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{{ url_for('index') }}">Dashboard</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{{ url_for('website_list') }}">Websites</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{{ url_for('incidents') }}">Incidents</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{{ url_for('settings') }}">Settings</a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </nav>
+
+                <div class="container mt-4">
+                    {% for category, message in get_flashed_messages(with_categories=true) %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                    {% endfor %}
+
+                    {% block content %}{% endblock %}
+                </div>
+
+                <footer class="mt-5 py-3 bg-light text-center">
+                    <div class="container">
+                        <p class="text-muted mb-0">Personal Domain Health Monitor</p>
+                    </div>
+                </footer>
+
+                <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+                <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+                <!-- Auto-refresh functionality -->
+                <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const AUTO_REFRESH_INTERVAL = 60000; // 60 seconds fallback
+                    const CHECK_COMPLETION_INTERVAL = 5000; // 5 seconds, to check if monitoring tasks completed
+
+                    // Get stored last check timestamp from localStorage (if any)
+                    let lastCheckTimestamp = localStorage.getItem('lastCheckTimestamp');
+                    let lastUpdateTimestamp = new Date().toISOString();
+                    let autoRefreshEnabled = true;
+
+                    // Function to check if a new monitoring task has completed
+                    function checkMonitoringCompletion() {
+                        if (!autoRefreshEnabled) return;
+
+                        fetch('/api/last-check')
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success && data.data && data.data.timestamp) {
+                                    // Get stored last timestamp from localStorage
+                                    let storedTimestamp = localStorage.getItem('lastCheckTimestamp');
+
+                                    // If there's a new check result and it's newer than our last known check
+                                    const newTimestamp = data.data.timestamp;
+                                    if (!storedTimestamp || new Date(newTimestamp) > new Date(storedTimestamp)) {
+                                        console.log(`New check detected: ${newTimestamp} (previous: ${storedTimestamp || 'none'})`);
+
+                                        // Store the new timestamp
+                                        localStorage.setItem('lastCheckTimestamp', newTimestamp);
+                                        lastCheckTimestamp = newTimestamp;
+
+                                        // Immediately fetch updated website status
+                                        fetchWebsiteStatus(true);
+
+                                        // Show a notification about the completed check
+                                        showNotification(`Monitoring completed: ${data.data.websites_up} sites up, ${data.data.websites_down} sites down`);
+                                    }
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error checking monitoring completion:', error);
+                            })
+                            .finally(() => {
+                                if (autoRefreshEnabled) {
+                                    setTimeout(checkMonitoringCompletion, CHECK_COMPLETION_INTERVAL);
+                                }
+                            });
+                    }
+
+                    // Function to fetch the latest website statuses
+                    function fetchWebsiteStatus(skipScheduling = false) {
+                        if (!autoRefreshEnabled && !skipScheduling) return;
+
+                        fetch('/api/website-status')
+                            .then(response => response.json())
+                            .then(data => {
+                                updateDashboard(data);
+                                lastUpdateTimestamp = data.timestamp;
+                            })
+                            .catch(error => {
+                                console.error('Error fetching website status:', error);
+                            })
+                            .finally(() => {
+                                if (autoRefreshEnabled && !skipScheduling) {
+                                    setTimeout(fetchWebsiteStatus, AUTO_REFRESH_INTERVAL);
+                                }
+                            });
+                    }
+
+                    // Function to show a notification to the user
+                    function showNotification(message) {
+                        // Create a notification container in the UI
+                        const container = document.querySelector('.container');
+                        if (container) {
+                            const notification = document.createElement('div');
+                            notification.className = 'alert alert-info alert-dismissible fade show';
+                            notification.innerHTML = `
+                                ${message}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            `;
+
+                            // Insert at the top of the container
+                            container.insertBefore(notification, container.firstChild);
+
+                            // Auto-remove after 5 seconds
+                            setTimeout(() => {
+                                notification.classList.remove('show');
+                                setTimeout(() => notification.remove(), 500);
+                            }, 5000);
+                        }
+                    }
+
+                    // Function to update dashboard elements with new data
+                    function updateDashboard(data) {
+                        // Only update if we're on a page that displays website statuses
+                        if (document.querySelector('.website-status-table')) {
+                            updateWebsiteStatusTable(data.status);
+                        }
+
+                        // Update the incidents list if we're on a page with incidents
+                        if (document.querySelector('.incidents-list')) {
+                            updateRecentIncidents();
+                        }
+
+                        // Update last refresh indicator
+                        const lastRefreshEl = document.getElementById('last-refresh-time');
+                        if (lastRefreshEl) {
+                            const now = new Date();
+                            lastRefreshEl.textContent = now.toLocaleTimeString();
+                        }
+                    }
+
+                    // Function to fetch and update recent incidents
+                    function updateRecentIncidents() {
+                        fetch('/api/recent-incidents')
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    const incidentsList = document.querySelector('.incidents-list');
+                                    if (!incidentsList || !data.incidents || data.incidents.length === 0) return;
+
+                                    // Clear current incidents
+                                    incidentsList.innerHTML = '';
+
+                                    // Add new incidents
+                                    data.incidents.forEach(incident => {
+                                        const incidentItem = document.createElement('div');
+                                        incidentItem.className = 'list-group-item';
+
+                                        const header = document.createElement('div');
+                                        header.className = 'd-flex justify-content-between';
+
+                                        const title = document.createElement('h6');
+                                        title.className = 'mb-1';
+                                        title.textContent = incident.website_name;
+
+                                        const statusBadge = document.createElement('span');
+                                        statusBadge.className = incident.resolved ? 'badge bg-success' : 'badge bg-danger';
+                                        statusBadge.textContent = incident.resolved ? 'Resolved' : 'Ongoing';
+
+                                        header.appendChild(title);
+                                        header.appendChild(statusBadge);
+                                        incidentItem.appendChild(header);
+
+                                        const startTime = document.createElement('p');
+                                        startTime.className = 'mb-1';
+                                        startTime.textContent = `Started: ${formatDateTime(incident.start_time)}`;
+                                        incidentItem.appendChild(startTime);
+
+                                        if (incident.resolved) {
+                                            const duration = document.createElement('p');
+                                            duration.className = 'mb-1';
+                                            duration.textContent = `Duration: ${formatDuration(incident.duration)}`;
+                                            incidentItem.appendChild(duration);
+                                        }
+
+                                        incidentsList.appendChild(incidentItem);
+                                    });
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error updating incidents:', error);
+                            });
+                    }
+
+                    // Helper function to format date time
+                    function formatDateTime(timestamp) {
+                        if (!timestamp) return '';
+                        const date = new Date(timestamp);
+                        return date.toLocaleString();
+                    }
+
+                    // Helper function to format duration
+                    function formatDuration(seconds) {
+                        if (!seconds) return '';
+
+                        if (seconds < 60) {
+                            return `${seconds} seconds`;
+                        } else if (seconds < 3600) {
+                            const minutes = Math.floor(seconds / 60);
+                            return `${minutes} minutes`;
+                        } else {
+                            const hours = Math.floor(seconds / 3600);
+                            const minutes = Math.floor((seconds % 3600) / 60);
+                            return `${hours} hours, ${minutes} minutes`;
+                        }
+                    }
+
+                    // Function to update the website status table
+                    function updateWebsiteStatusTable(statusData) {
+                        const table = document.querySelector('.website-status-table tbody');
+                        if (!table) return;
+
+                        // Loop through each row in the table and update with new data
+                        const rows = table.querySelectorAll('tr');
+                        rows.forEach(row => {
+                            const websiteId = row.getAttribute('data-website-id');
+                            if (!websiteId) return;
+
+                            // Find matching website data
+                            const websiteData = statusData.find(site => site.id == websiteId);
+                            if (!websiteData) return;
+
+                            // Update status cell
+                            const statusCell = row.querySelector('.status-cell');
+                            if (statusCell) {
+                                let statusHTML = '';
+                                if (websiteData.status === 'Up') {
+                                    statusHTML = '<span class="badge bg-success">Up</span>';
+                                } else if (websiteData.status === 'Down') {
+                                    statusHTML = '<span class="badge bg-danger">Down</span>';
+                                } else {
+                                    statusHTML = '<span class="badge bg-secondary">Unknown</span>';
+                                }
+                                statusCell.innerHTML = statusHTML;
+                            }
+
+                            // Update response time cell
+                            const responseTimeCell = row.querySelector('.response-time-cell');
+                            if (responseTimeCell) {
+                                responseTimeCell.textContent = websiteData.response_time ? `${websiteData.response_time} ms` : '-';
+                            }
+
+                            // Update last checked cell
+                            const lastCheckedCell = row.querySelector('.last-checked-cell');
+                            if (lastCheckedCell && websiteData.last_checked) {
+                                const date = new Date(websiteData.last_checked);
+                                lastCheckedCell.textContent = date.toLocaleString();
+                            }
+
+                            // Update SSL cell if present
+                            const sslCell = row.querySelector('.ssl-cell');
+                            if (sslCell && websiteData.ssl_valid !== null) {
+                                let sslHTML = '';
+                                if (websiteData.ssl_valid === 1 || websiteData.ssl_valid === true) {
+                                    sslHTML = '<span class="badge bg-success">Valid</span>';
+                                } else if (websiteData.ssl_valid === 0 || websiteData.ssl_valid === false) {
+                                    sslHTML = '<span class="badge bg-danger">Invalid</span>';
+                                } else {
+                                    sslHTML = '<span class="badge bg-secondary">Unknown</span>';
+                                }
+                                sslCell.innerHTML = sslHTML;
+                            }
+
+                            // Update security score cell if present
+                            const securityCell = row.querySelector('.security-cell');
+                            if (securityCell && websiteData.security_score !== null) {
+                                let scoreHTML = '';
+                                const score = websiteData.security_score;
+                                if (score >= 80) {
+                                    scoreHTML = `<span class="badge bg-success">${score}%</span>`;
+                                } else if (score >= 50) {
+                                    scoreHTML = `<span class="badge bg-warning text-dark">${score}%</span>`;
+                                } else {
+                                    scoreHTML = `<span class="badge bg-danger">${score}%</span>`;
+                                }
+                                securityCell.innerHTML = scoreHTML;
+                            }
+                        });
+                    }
+
+                    // Add indicator to the navbar showing when the page was last refreshed
+                    function addRefreshIndicator() {
+                        const navbarNav = document.querySelector('#navbarNav');
+                        if (!navbarNav) return;
+
+                        const refreshContainer = document.createElement('div');
+                        refreshContainer.className = 'ms-auto d-flex align-items-center';
+
+                        const refreshIndicator = document.createElement('div');
+                        refreshIndicator.className = 'refresh-indicator text-light me-3';
+                        refreshIndicator.innerHTML = `
+                            <small>Last updated: <span id="last-refresh-time">${new Date().toLocaleTimeString()}</span></small>
+                            <button id="toggle-refresh" class="btn btn-sm btn-outline-light ms-2">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </button>
+                        `;
+
+                        refreshContainer.appendChild(refreshIndicator);
+                        navbarNav.appendChild(refreshContainer);
+
+                        // Add toggle functionality
+                        document.getElementById('toggle-refresh').addEventListener('click', function() {
+                            autoRefreshEnabled = !autoRefreshEnabled;
+                            this.classList.toggle('btn-outline-light', autoRefreshEnabled);
+                            this.classList.toggle('btn-outline-danger', !autoRefreshEnabled);
+
+                            if (autoRefreshEnabled) {
+                                fetchWebsiteStatus(); // Start polling again
+                                checkMonitoringCompletion();
+                            }
+                        });
+                    }
+
+                    // Add data-website-id attributes to rows in the table for easier updates
+                    function prepareWebsiteTables() {
+                        const tables = document.querySelectorAll('.website-status-table');
+                        tables.forEach(table => {
+                            const rows = table.querySelectorAll('tbody tr');
+                            rows.forEach(row => {
+                                // Check if row already has website-id
+                                if (row.hasAttribute('data-website-id')) return;
+
+                                // Extract website ID from the detail link
+                                const detailLink = row.querySelector('a[href*="website_detail"]');
+                                if (detailLink) {
+                                    const href = detailLink.getAttribute('href');
+                                    const websiteId = href.match(/website_detail\/(\d+)/)?.[1] ||
+                                                     href.match(/website_id=(\d+)/)?.[1];
+                                    if (websiteId) {
+                                        row.setAttribute('data-website-id', websiteId);
+                                    }
+                                }
+
+                                // Add classes to cells for easier targeting
+                                const cells = row.querySelectorAll('td');
+                                if (cells.length >= 3) { // Make sure there are enough cells
+                                    // Assuming standard layout: Name, URL, Status, Response Time, Last Checked, etc.
+                                    cells[2].classList.add('status-cell');
+                                    if (cells.length > 3) cells[3].classList.add('response-time-cell');
+                                    if (cells.length > 4) cells[4].classList.add('last-checked-cell');
+                                    if (cells.length > 5) cells[5].classList.add('ssl-cell');
+                                    if (cells.length > 6) cells[6].classList.add('security-cell');
+                                }
+                            });
+
+                            // Mark table for auto-refresh
+                            table.classList.add('website-status-table');
+                        });
+                    }
+
+                    // Initialize
+                    addRefreshIndicator();
+                    prepareWebsiteTables();
+                    setTimeout(fetchWebsiteStatus, 5000); // Initial delay before first refresh
+                    setTimeout(checkMonitoringCompletion, 2000); // Start checking for monitor task completions
+                });
+                </script>
+
+                {% block scripts %}{% endblock %}
+            </body>
+            </html>
+        

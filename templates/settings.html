@@ -1,0 +1,96 @@
+
+        {% extends "base.html" %}
+
+        {% block title %}Settings - Domain Health Monitor{% endblock %}
+
+        {% block content %}
+        <h1 class="mb-4">Application Settings</h1>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <form method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <h5 class="mb-3">Database Settings</h5>
+                    <div class="mb-3">
+                        <label for="database_path" class="form-label">Database Path</label>
+                        <input type="text" class="form-control" id="database_path" name="database_path" value="{{ form.database_path.data or '' }}">
+                        <small class="text-muted">Path to SQLite database file</small>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <h5 class="mb-3">Monitor Settings</h5>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="check_interval_minutes" class="form-label">Check Interval (minutes)</label>
+                            <input type="number" class="form-control" id="check_interval_minutes" name="check_interval_minutes" value="{{ form.check_interval_minutes.data or 5 }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="retry_attempts" class="form-label">Retry Attempts</label>
+                            <input type="number" class="form-control" id="retry_attempts" name="retry_attempts" value="{{ form.retry_attempts.data or 2 }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="connection_timeout" class="form-label">Connection Timeout (seconds)</label>
+                            <input type="number" class="form-control" id="connection_timeout" name="connection_timeout" value="{{ form.connection_timeout.data or 10 }}">
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <h5 class="mb-3">Email Alert Settings</h5>
+                    <div class="mb-3">
+                        <label for="smtp_server" class="form-label">SMTP Server</label>
+                        <input type="text" class="form-control" id="smtp_server" name="smtp_server" value="{{ form.smtp_server.data or '' }}">
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="smtp_port" class="form-label">SMTP Port</label>
+                            <input type="number" class="form-control" id="smtp_port" name="smtp_port" value="{{ form.smtp_port.data or 587 }}">
+                        </div>
+                        <div class="col-md-8">
+                            <label for="from_email" class="form-label">From Email</label>
+                            <input type="email" class="form-control" id="from_email" name="from_email" value="{{ form.from_email.data or '' }}">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="smtp_username" class="form-label">SMTP Username</label>
+                            <input type="text" class="form-control" id="smtp_username" name="smtp_username" value="{{ form.smtp_username.data or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="smtp_password" class="form-label">SMTP Password</label>
+                            <input type="password" class="form-control" id="smtp_password" name="smtp_password" placeholder="Leave blank to keep current password">
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <h5 class="mb-3">SMS Alert Settings (Twilio)</h5>
+                    <div class="mb-3">
+                        <label for="twilio_account_sid" class="form-label">Account SID</label>
+                        <input type="text" class="form-control" id="twilio_account_sid" name="twilio_account_sid" value="{{ form.twilio_account_sid.data or '' }}">
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="twilio_auth_token" class="form-label">Auth Token</label>
+                            <input type="password" class="form-control" id="twilio_auth_token" name="twilio_auth_token" placeholder="Leave blank to keep current token">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="twilio_phone_number" class="form-label">Twilio Phone Number</label>
+                            <input type="text" class="form-control" id="twilio_phone_number" name="twilio_phone_number" value="{{ form.twilio_phone_number.data or '' }}" placeholder="+1234567890">
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">Save Settings</button>
+                    </div>
+
+                    <div class="alert alert-warning mt-4">
+                        <strong>Note:</strong> Application restart required for changes to take effect.
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endblock %}
+        

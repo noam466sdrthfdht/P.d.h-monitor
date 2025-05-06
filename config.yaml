@@ -1,0 +1,19 @@
+database_path: domain_monitor.db
+email_settings:
+  from_email: youremail@gmail.com
+  smtp_password:
+  smtp_port: 587
+  smtp_server: smtp.gmail.com
+  smtp_username: youremail@gmail.com
+http_settings:
+  default_headers:
+    Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8
+    User-Agent: Domain-Health-Monitor/1.0
+monitor_settings:
+  check_interval_minutes: 1
+  connection_timeout: 10
+  retry_attempts: 2
+sms_settings:
+  twilio_account_sid: your_twilio_account_sid
+  twilio_auth_token: your_twilio_auth_token
+  twilio_phone_number: your_twilio_phone_number

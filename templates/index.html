@@ -1,0 +1,137 @@
+
+        {% extends "base.html" %}
+
+        {% block title %}Dashboard - Domain Health Monitor{% endblock %}
+
+        {% block content %}
+        <h1 class="mb-4">Dashboard</h1>
+
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Websites Status</h5>
+                        <a href="{{ url_for('website_list') }}" class="btn btn-sm btn-primary">View All</a>
+                    </div>
+                    <div class="card-body">
+                        {% if websites %}
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover website-status-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>URL</th>
+                                            <th>Status</th>
+                                            <th>Response Time</th>
+                                            <th>Last Checked</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for website in websites %}
+                                        <tr data-website-id="{{ website.id }}">
+                                            <td>
+                                                <a href="{{ url_for('website_detail', website_id=website.id) }}">
+                                                    {{ website.name }}
+                                                </a>
+                                            </td>
+                                            <td>
+                                                <a href="{{ website.url }}" target="_blank">
+                                                    {{ website.url }}
+                                                </a>
+                                            </td>
+                                            <td class="status-cell">
+                                                {% if website.status == 'Up' %}
+                                                    <span class="badge bg-success">Up</span>
+                                                {% elif website.status == 'Down' %}
+                                                    <span class="badge bg-danger">Down</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Unknown</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="response-time-cell">
+                                                {% if website.latest_check and website.latest_check.response_time %}
+                                                    {{ website.latest_check.response_time }} ms
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            <td class="last-checked-cell">
+                                                {% if website.latest_check %}
+                                                    {{ website.latest_check.timestamp|format_datetime }}
+                                                {% else %}
+                                                    Never
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info mb-0">
+                                No websites are being monitored.
+                                <a href="{{ url_for('add_website') }}" class="alert-link">Add your first website</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Recent Incidents</h5>
+                        <a href="{{ url_for('incidents') }}" class="btn btn-sm btn-primary">View All</a>
+                    </div>
+                    <div class="card-body">
+                        {% if incidents %}
+                            <div class="list-group incidents-list">
+                                {% for incident in incidents %}
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between">
+                                        <h6 class="mb-1">{{ incident.website_name }}</h6>
+                                        {% if incident.resolved %}
+                                            <span class="badge bg-success">Resolved</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Ongoing</span>
+                                        {% endif %}
+                                    </div>
+                                    <p class="mb-1">Started: {{ incident.start_time|format_datetime }}</p>
+                                    {% if incident.resolved %}
+                                        <p class="mb-1">Duration:
+                                            {% if incident.duration < 60 %}
+                                                {{ incident.duration }} seconds
+                                            {% elif incident.duration < 3600 %}
+                                                {{ (incident.duration // 60) }} minutes
+                                            {% else %}
+                                                {{ (incident.duration // 3600) }} hours, {{ ((incident.duration % 3600) // 60) }} minutes
+                                            {% endif %}
+                                        </p>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info mb-0">
+                                No incidents recorded yet.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Quick Actions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('add_website') }}" class="btn btn-primary">
+                                <i class="bi bi-plus-circle"></i> Add Website
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endblock %}
+        
